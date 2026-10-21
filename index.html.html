@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>K SKU to P SKU Converter</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b1f24;--sub:#5f6b7a;--line:#d9dee5;--pri:#2457d6;--ok:#12805c;--warn:#b45309;--wbg:#fdf1e3;--bad:#b42318;--bbg:#fdecec;--okbg:#e6f5ec}
+@media (prefers-color-scheme:dark){:root{--bg:#14171c;--card:#1d2128;--tx:#e8ebef;--sub:#9aa5b3;--line:#323946;--pri:#6b94ff;--ok:#4cc79b;--warn:#f0a95a;--wbg:#3a2f20;--bad:#ff8a80;--bbg:#3a2020;--okbg:#1c3a2c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:Arial,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;line-height:1.5}
+main{max-width:980px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:20px;margin:0 0 4px}
+.sub{margin:0 0 14px;color:var(--sub);font-size:14px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tab{background:transparent;color:var(--sub);border:1px solid var(--line);border-radius:8px;padding:8px 16px;font-size:14px;cursor:pointer;font-weight:600}
+.tab.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.drop{display:block;border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;cursor:pointer;color:var(--sub);font-size:14px}
+.drop.on{border-color:var(--pri);color:var(--tx)}
+.drop b{display:block;color:var(--tx);margin-bottom:2px}
+input[type=file]{display:none}
+.b{display:inline-block;background:var(--pri);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-size:14px;cursor:pointer;font-weight:600;text-decoration:none}
+.b.alt{background:transparent;color:var(--pri);border:1px solid var(--pri)}
+.b:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:8px 0}
+.stat{border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.stat span{display:block;font-size:12px;color:var(--sub)}.stat strong{font-size:20px}
+.msg{padding:10px 12px;border-radius:8px;font-size:14px;margin-top:10px;white-space:pre-line}
+.warn{background:var(--wbg);color:var(--warn)}.bad{background:var(--bbg);color:var(--bad)}.ok{color:var(--ok)}
+.badge{display:inline-block;font-size:12px;border:1px solid var(--line);border-radius:99px;padding:2px 10px;color:var(--sub)}
+.badge.live{color:var(--ok);border-color:var(--ok)}.badge.old{color:var(--warn);border-color:var(--warn)}
+.scroll{overflow-x:auto;max-height:520px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;white-space:nowrap}
+th{position:sticky;top:0;background:var(--card)}
+.search{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;min-width:220px}
+small{color:var(--sub)}
+#unm th{color:var(--bad)}
+.lg{display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid var(--line)}
+.lg.ok{background:var(--okbg);border-color:var(--ok)}.lg.err{background:var(--bbg);border-color:var(--bad)}
+#pv td{white-space:nowrap}#pv td.pn{max-width:460px;overflow:hidden;text-overflow:ellipsis}
+#pv tr.ok td{background:var(--okbg)}#pv tr.ok td:first-child{box-shadow:inset 4px 0 0 var(--ok)}
+#pv tr.err td{background:var(--bbg);color:var(--bad);font-weight:600}#pv tr.err td:first-child{box-shadow:inset 4px 0 0 var(--bad)}
+#unm tr.unm td{color:var(--bad);font-weight:700;background:var(--bbg);white-space:normal;word-break:break-all}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<h1>K SKU to P SKU Converter</h1>
+<p class="sub">Converts set SKUs (K) in a To Ship order file into component SKUs (P). The reference table is loaded live from a shared sheet, so everyone always uses the latest version. Order files are processed in your browser only and are never uploaded.</p>
+
+<div class="tabs">
+  <button class="tab on" data-tab="conv">Converter</button>
+  <button class="tab" data-tab="ref">Reference Table</button>
+</div>
+
+<section id="p-conv">
+  <div class="card">
+    <label class="drop" id="d1"><b>To Ship order file (.xlsx)</b><span id="n1">Click to choose a file or drag and drop it here</span><input type="file" id="f1" accept=".xlsx,.xls"></label>
+    <div class="row">
+      <button class="b" id="go" disabled>Convert now</button>
+      <span class="badge" id="badge1">Loading reference…</span>
+    </div>
+    <div id="err" class="msg bad" hidden></div>
+  </div>
+  <div class="card" id="res" hidden>
+    <div class="stats">
+      <div class="stat"><span>Rows (before → after)</span><strong id="sRows"></strong></div>
+      <div class="stat"><span>Orders</span><strong id="sOrd"></strong></div>
+      <div class="stat"><span>Total quantity (pcs)</span><strong id="sPcs"></strong></div>
+    </div>
+    <div id="sNote" class="msg"></div>
+    <div class="scroll" id="unmBox" hidden style="margin-top:12px;border:2px solid var(--bad);border-radius:8px"><table id="unm"></table></div>
+    <div class="scroll" style="margin-top:12px"><table id="conv"></table></div>
+    <div class="row"><button class="b" id="dl">Download converted file</button><small id="fname"></small></div>
+    <p class="sub" id="srcNote" style="margin:10px 0 0"></p>
+    <div style="margin-top:18px"><b>Converted file preview</b>
+      <div class="row" style="margin-top:6px"><span class="lg ok"></span><small>Converted component rows</small><span class="lg err" style="margin-left:10px"></span><small>K SKU not in reference (not converted)</small></div>
+      <div class="scroll" style="margin-top:8px"><table id="pv"></table></div>
+    </div>
+  </div>
+</section>
+
+<section id="p-ref" hidden>
+  <div class="card">
+    <div class="row" style="margin-top:0"><span class="badge" id="badge2">Loading reference…</span></div>
+    <p class="sub" style="margin-top:8px">This table is read-only. It is maintained by the reference owner in the shared sheet. Changes there appear here after reloading.</p>
+    <div class="row">
+      <input class="search" id="q" placeholder="Search SKU or name">
+      <button class="b alt" id="reload">Reload reference</button>
+      <a class="b alt" id="sheetLink" target="_blank" rel="noopener" hidden>Open reference sheet</a>
+    </div>
+    <div id="refMsg" class="msg" hidden></div>
+    <div class="scroll" style="margin-top:12px">
+      <table><thead><tr><th>Set SKU (K)</th><th>Set Name</th><th>Component SKU (P)</th><th>Component Name</th><th>Qty</th></tr></thead><tbody id="tbody"></tbody></table>
+    </div>
+  </div>
+</section>
+</main>
+
+<script id="refdata" type="application/json">[["KVNMEA0001","패드듀오 (제모패,딥비타패드)","PMEKR60005R01","메디큐브_제로_제로모공패드2.0_우창_수출용(70매)_155g_01",1],["KVNMEA0001","패드듀오 (제모패,딥비타패드)","PMEKR54009R02","메디큐브_딥_딥비타씨패드_150g_02",1],["KVNMEA0002","패드듀오 (제모패,PDRN겔패드)","PMEKR60005R01","메디큐브_제로_제로모공패드2.0_우창_수출용(70매)_155g_01",1],["KVNMEA0002","패드듀오 (제모패,PDRN겔패드)","PMEKR53012R02","메디큐브_PDRN_피디알엔핑크콜라겐토닝겔토너패드(70매입*1EA)_120ml_02",1],["KVNMEA0003","패드듀오 (딥비타패드,PDRN겔패드)","PMEKR54009R02","메디큐브_딥_딥비타씨패드_150g_02",1],["KVNMEA0003","패드듀오 (딥비타패드,PDRN겔패드)","PMEKR53012R02","메디큐브_PDRN_피디알엔핑크콜라겐토닝겔토너패드(70매입*1EA)_120ml_02",1],["KVNMEA0004","PDRN 세럼 듀오","PMEKR53027R00","메디큐브_PDRN_피디알엔핑크펩타이드앰플_30ml_00",1],["KVNMEA0004","PDRN 세럼 듀오","PMEKR53039R01","메디큐브_PDRN_울트라라이트피디알엔핑크펩타이드앰플_30ml_01",1],["KVNMEA0005","딥 브라이트닝 듀오 (딥비타패드,딥 캡슐크림) 선크림 증정","PMEKR54009R02","메디큐브_딥_딥비타씨패드_150g_02",1],["KVNMEA0005","딥 브라이트닝 듀오 (딥비타패드,딥 캡슐크림) 선크림 증정","PMEKR54013R02","메디큐브_딥_비타씨캡슐크림_55g_02",1],["KVNMEA0005","딥 브라이트닝 듀오 (딥비타패드,딥 캡슐크림) 선크림 증정","PMEKR61015R00","메디큐브_콜라겐_(동남아전용)콜라겐글로우선크림_수출용_15ml_00",1],["KVNMEA0006","딥 브라이트닝 듀오 (딥비타패드,딥 캡슐크림) 증정 없음","PMEKR54009R02","메디큐브_딥_딥비타씨패드_150g_02",1],["KVNMEA0006","딥 브라이트닝 듀오 (딥비타패드,딥 캡슐크림) 증정 없음","PMEKR54013R02","메디큐브_딥_비타씨캡슐크림_55g_02",1],["KVNMEA0007","nganhuane 9월 라이브 특가 (제로모공패드, PDRN 앰플 10ML 증정)","PMEKR60005R01","메디큐브_제로_제로모공패드2.0_우창_수출용(70매)_155g_01",1],["KVNMEA0007","nganhuane 9월 라이브 특가 (제로모공패드, PDRN 앰플 10ML 증정)","PMEKR53050R00","메디큐브_PDRN_(동남아전용)피디알엔핑크펩타이드앰플_수출용_10ml_00",1],["KVNMEA0008","nganhuane 9월 라이브 특가 (딥비타캡슐크림, PDRN 토너 30ML 증정)","PMEKR54013R02","메디큐브_딥_비타씨캡슐크림_55g_02",1],["KVNMEA0008","nganhuane 9월 라이브 특가 (딥비타캡슐크림, PDRN 토너 30ML 증정)","PMEKR53051R00","메디큐브_PDRN_(동남아전용)피디알엔핑크시카수딩토너_수출용_30ml_00",1],["KVNMEA0009","nganhuane 9월 페이데이 세트 1(울트라라이트 30ml, PDRN 캡슐크림, 콜라겐선스크린)","PMEKR53039R01","메디큐브_PDRN_울트라라이트피디알엔핑크펩타이드앰플_30ml_01",1],["KVNMEA0009","nganhuane 9월 페이데이 세트 1(울트라라이트 30ml, PDRN 캡슐크림, 콜라겐선스크린)","PMEKR53045R00","메디큐브_PDRN_핑크콜라겐캡슐크림(성분변경)_55g_00",1],["KVNMEA0009","nganhuane 9월 페이데이 세트 1(울트라라이트 30ml, PDRN 캡슐크림, 콜라겐선스크린)","PMEKR61013R00","메디큐브_콜라겐_글로우선크림_50ml_00",1],["KVNMEA0010","nganhuane 9월 페이데이 세트 2(제로모공패드,울트라라이트 110ml)","PMEKR60005R01","메디큐브_제로_제로모공패드2.0_우창_수출용(70매)_155g_01",1],["KVNMEA0010","nganhuane 9월 페이데이 세트 2(제로모공패드,울트라라이트 110ml)","PMEKR53040R01","메디큐브_PDRN_울트라라이트피디알엔핑크펩타이드앰플_110ml_01",1],["KVNMEA0011","nganhuane 9월 페이데이 세트 3(딥비타패드,제로모공패드)","PMEKR60005R01","메디큐브_제로_제로모공패드2.0_우창_수출용(70매)_155g_01",1],["KVNMEA0011","nganhuane 9월 페이데이 세트 3(딥비타패드,제로모공패드)","PMEKR54009R02","메디큐브_딥_딥비타씨패드_150g_02",1],["KVNMEA0012","nganhuane 9월 페이데이 세트 4(제로모공패드, 딥 캡슐크림)","PMEKR60005R01","메디큐브_제로_제로모공패드2.0_우창_수출용(70매)_155g_01",1],["KVNMEA0012","nganhuane 9월 페이데이 세트 4(제로모공패드, 딥 캡슐크림)","PMEKR54013R02","메디큐브_딥_비타씨캡슐크림_55g_02",1],["KVNMEA0013","[NOT FOR SALES] 미니어처 증정 (PDRN 앰플 10ml,토너 30ml, 선크림 15ml)","PMEKR53050R00","메디큐브_PDRN_(동남아전용)피디알엔핑크펩타이드앰플_수출용_10ml_00",1],["KVNMEA0013","[NOT FOR SALES] 미니어처 증정 (PDRN 앰플 10ml,토너 30ml, 선크림 15ml)","PMEKR53051R00","메디큐브_PDRN_(동남아전용)피디알엔핑크시카수딩토너_수출용_30ml_00",1],["KVNMEA0013","[NOT FOR SALES] 미니어처 증정 (PDRN 앰플 10ml,토너 30ml, 선크림 15ml)","PMEKR61015R00","메디큐브_콜라겐_(동남아전용)콜라겐글로우선크림_수출용_15ml_00",1],["KVNMEA0014","[NOT FOR SALES] 미니어처 증정 (선크림 15ml*2, PDRN 앰플 10ml)","PMEKR61015R00","메디큐브_콜라겐_(동남아전용)콜라겐글로우선크림_수출용_15ml_00",2],["KVNMEA0014","[NOT FOR SALES] 미니어처 증정 (선크림 15ml*2, PDRN 앰플 10ml)","PMEKR53050R00","메디큐브_PDRN_(동남아전용)피디알엔핑크펩타이드앰플_수출용_10ml_00",1],["KVNMEA0015","[NOT FOR SALES] 미니어처 증정 (PDRN 앰플 10ml*3, 토너 30ml, 선크림 15ml)","PMEKR53050R00","메디큐브_PDRN_(동남아전용)피디알엔핑크펩타이드앰플_수출용_10ml_00",3],["KVNMEA0015","[NOT FOR SALES] 미니어처 증정 (PDRN 앰플 10ml*3, 토너 30ml, 선크림 15ml)","PMEKR53051R00","메디큐브_PDRN_(동남아전용)피디알엔핑크시카수딩토너_수출용_30ml_00",1],["KVNMEA0015","[NOT FOR SALES] 미니어처 증정 (PDRN 앰플 10ml*3, 토너 30ml, 선크림 15ml)","PMEKR61015R00","메디큐브_콜라겐_(동남아전용)콜라겐글로우선크림_수출용_15ml_00",1],["KVNMEA0016","PDRN 겔마스크 4매입 - 1세트 출고","PMEKR53047R00","메디큐브_PDRN_(대체원료)피디알엔핑크콜라겐겔마스크(단상자_4ea)(4매입)_112g_00",4],["KVNMEA0017","PDRN 겔마스크 4매입 - 2세트 출고","PMEKR53047R00","메디큐브_PDRN_(대체원료)피디알엔핑크콜라겐겔마스크(단상자_4ea)(4매입)_112g_00",8],["KVNMEA0018","PDRN 겔마스크 4매입 - 3세트 출고","PMEKR53047R00","메디큐브_PDRN_(대체원료)피디알엔핑크콜라겐겔마스크(단상자_4ea)(4매입)_112g_00",12],["KVNMEA0019","nganhuane 10월 라이브특가 (석시닉패드,HOCL필샷미니,3H크림미니)","PMEKR55022R01","메디큐브_레드_석시닉애씨드필링패드_155g_01",1],["KVNMEA0019","nganhuane 10월 라이브특가 (석시닉패드,HOCL필샷미니,3H크림미니)","PMEKR72012R00","메디큐브_하이포클로로스애씨드_하이포클로로스애씨드필샷(동남아)_수출용_30ml_00",1],["KVNMEA0019","nganhuane 10월 라이브특가 (석시닉패드,HOCL필샷미니,3H크림미니)","PMEKR72011R00","메디큐브_하이포클로로스애씨드_(동남아전용)쓰리에이치릴리프크림_수출용_30ml_00",1],["KVNMEA0020","콜라겐 플럼핑 듀오 (콜라겐랩핑마스크,젤리크림)","PMEKR61004R02","메디큐브_콜라겐_나이트랩핑마스크_75ml_02",1],["KVNMEA0020","콜라겐 플럼핑 듀오 (콜라겐랩핑마스크,젤리크림)","PMEKR61007R02","메디큐브_콜라겐_젤리크림_50ml_02",1],["KVNMEA0021","PDRN 스킨케어미니3종세트(앰플,토너,폼클)","PMEKR53027R00","메디큐브_PDRN_피디알엔핑크펩타이드앰플_30ml_00",1],["KVNMEA0021","PDRN 스킨케어미니3종세트(앰플,토너,폼클)","PMEKR53051R00","메디큐브_PDRN_(동남아전용)피디알엔핑크시카수딩토너_수출용_30ml_00",1],["KVNMEA0021","PDRN 스킨케어미니3종세트(앰플,토너,폼클)","PMEKR53052R00","메디큐브_PDRN_(동남아전용)피디알엔핑크글루타치온캡슐클렌징폼_수출용_30g_00",1],["KVNMEA0022","각질제거 미니 3종 세트 (HOCL필샷,코직필샷,3H크림)","PMEKR68026R00","메디큐브_코직애씨드_코직애씨드터메릭필샷(동남아)_수출용_30ml_00",1],["KVNMEA0022","각질제거 미니 3종 세트 (HOCL필샷,코직필샷,3H크림)","PMEKR72012R00","메디큐브_하이포클로로스애씨드_하이포클로로스애씨드필샷(동남아)_수출용_30ml_00",1],["KVNMEA0022","각질제거 미니 3종 세트 (HOCL필샷,코직필샷,3H크림)","PMEKR72011R00","메디큐브_하이포클로로스애씨드_(동남아전용)쓰리에이치릴리프크림_수출용_30ml_00",1],["KVNMEA0023","HOCL 필샷듀오,3H크림미니","PMEKR72002R04","메디큐브_하이포클로로스애씨드_필샷_80ml_04",1],["KVNMEA0023","HOCL 필샷듀오,3H크림미니","PMEKR72005R02","메디큐브_하이포클로로스애씨드_하이포클로로스애씨드바디필샷_280ml_02",1],["KVNMEA0023","HOCL 필샷듀오,3H크림미니","PMEKR72011R00","메디큐브_하이포클로로스애씨드_(동남아전용)쓰리에이치릴리프크림_수출용_30ml_00",1],["KVNMEA0024","패드듀오 (제모패,마일드패드)","PMEKR60005R01","메디큐브_제로_제로모공패드2.0_우창_수출용(70매)_155g_01",1],["KVNMEA0024","패드듀오 (제모패,마일드패드)","PMEKR60003R02","메디큐브_제로_제로모공패드마일드_120g_02",1],["KVNMEA0025","nganhuane 10월 라이브특가 (제모패,PDRN앰플,비타캡슐)","PMEKR60005R01","메디큐브_제로_제로모공패드2.0_우창_수출용(70매)_155g_01",1],["KVNMEA0025","nganhuane 10월 라이브특가 (제모패,PDRN앰플,비타캡슐)","PMEKR53027R00","메디큐브_PDRN_피디알엔핑크펩타이드앰플_30ml_00",1],["KVNMEA0025","nganhuane 10월 라이브특가 (제모패,PDRN앰플,비타캡슐)","PMEKR54013R02","메디큐브_딥_비타씨캡슐크림_55g_02",1],["KVNMEA0026","미니어처 듀오 (PDRN 앰플 10ml,토너 30ml)","PMEKR53050R00","메디큐브_PDRN_(동남아전용)피디알엔핑크펩타이드앰플_수출용_10ml_00",1],["KVNMEA0026","미니어처 듀오 (PDRN 앰플 10ml,토너 30ml)","PMEKR53051R00","메디큐브_PDRN_(동남아전용)피디알엔핑크시카수딩토너_수출용_30ml_00",1]]</script>
+<script src="xlsx.full.min.js"></script>
+<script>if(typeof XLSX==="undefined"){document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>')}</script>
+<script>
+/* ========= SETTINGS (only the app owner changes these) ========= */
+var CONFIG={
+  REF_CSV_URL:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRWMtWjG6kZgzWKwL_tH0kWmdP5ghWhAZBH6Yrqt99jKNCzIVj_530PTlSHLlczuYe4yxk89IPh90ze/pub?gid=1033917974&single=true&output=csv",   // Google Sheet "Publish to web" CSV link
+  REF_FILE:"reference.csv",   // same-folder backup source used when hosted on a web server
+  EDIT_URL:"",      // optional: normal link to the sheet, shown as "Open reference sheet"
+  BUILT_AT:"2026-10-21"  // date of the backup reference embedded in this file
+};
+/* =============================================================== */
+(function(){
+var $=function(i){return document.getElementById(i)};
+function s(v){return v==null?'':String(v).trim()}
+function up(v){return s(v).toUpperCase()}
+var BUILTIN=JSON.parse($('refdata').textContent), CK='kp_ref_cache_v2';
+var ref=BUILTIN, src={kind:'builtin',at:CONFIG.BUILT_AT}, ready=false, file=null, out=null, loadSeq=0;
+
+function showMsg(el,t,cls){el.textContent=t;el.className='msg '+(cls||'');el.hidden=!t}
+function needX(el){if(typeof XLSX==='undefined'){showMsg(el,'The Excel library could not be loaded. Connect to the internet, or place xlsx.full.min.js in the same folder as this file.','bad');return false}return true}
+function saveBlob(data,name,type){var u=URL.createObjectURL(new Blob([data],{type:type})),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},4000)}
+var XLSX_T='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+function hm(d){var p=function(x){return (x<10?'0':'')+x};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())}
+
+document.querySelectorAll('.tab').forEach(function(b){b.addEventListener('click',function(){
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('on',t===b)});
+  $('p-conv').hidden=b.dataset.tab!=='conv';$('p-ref').hidden=b.dataset.tab!=='ref';
+})});
+if(CONFIG.EDIT_URL){$('sheetLink').href=CONFIG.EDIT_URL;$('sheetLink').hidden=false}
+
+// ---- reference loading
+function parseCSV(t){
+  var rows=[],r=[],f='',q=false,i=0,c;
+  if(t.charCodeAt(0)===0xFEFF)t=t.slice(1);
+  for(;i<t.length;i++){c=t[i];
+    if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+    else if(c==='"')q=true;
+    else if(c===','){r.push(f);f=''}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;r.push(f);rows.push(r);r=[];f=''}
+    else f+=c}
+  if(f!==''||r.length){r.push(f);rows.push(r)}
+  return rows;
+}
+function toRef(a){
+  var h=(a[0]||[]).map(s);
+  function col(n){for(var i=0;i<n.length;i++){var x=h.indexOf(n[i]);if(x>=0)return x}return -1}
+  var c=[col(['Set SKU','세트품번']),col(['Set Name','세트명']),col(['Component SKU','구성품번']),col(['Component Name','구성품명']),col(['Qty','수량'])];
+  if(c[0]<0||c[2]<0||c[4]<0)throw new Error('The reference sheet must have the headers: Set SKU, Set Name, Component SKU, Component Name, Qty.');
+  var rows=[],bad=[],seen={};
+  a.slice(1).forEach(function(x,i){
+    var k=s(x[c[0]]),p=s(x[c[2]]),q=Number(s(x[c[4]]));
+    if(!k&&!p)return;
+    var key=up(k)+'|'+up(p);
+    if(!k||!p||!(q>=1)||Math.floor(q)!==q||seen[key]){bad.push(i+2);return}
+    seen[key]=1;rows.push([k,c[1]<0?'':s(x[c[1]]),p,c[3]<0?'':s(x[c[3]]),q]);
+  });
+  if(!rows.length)throw new Error('The reference sheet has no valid rows.');
+  return {rows:rows,bad:bad};
+}
+function setBadge(){
+  var n=sets(ref)+' sets / '+ref.length+' rows',t,cls='badge';
+  if(!ready&&src.kind==='loading'){t='Loading reference…'}
+  else if(src.kind==='live'){t='Live reference (shared sheet) · loaded '+src.at+' · '+n;cls+=' live'}
+  else if(src.kind==='file'){t='Live reference (reference.csv) · loaded '+src.at+' · '+n;cls+=' live'}
+  else if(src.kind==='cache'){t='OFFLINE COPY from '+src.at+' · '+n;cls+=' old'}
+  else{t='BACKUP reference from '+src.at+' · '+n;cls+=' old'}
+  ['badge1','badge2'].forEach(function(id){$(id).textContent=t;$(id).className=cls});
+}
+function sets(rows){var o={};rows.forEach(function(r){o[up(r[0])]=1});return Object.keys(o).length}
+function upd(){$('go').disabled=!(file&&ready)}
+
+function xhrText(u){return new Promise(function(res,rej){var x=new XMLHttpRequest();x.open('GET',u);x.timeout=12000;
+  x.onload=function(){x.status>=200&&x.status<300?res(x.responseText):rej(new Error('HTTP '+x.status))};
+  x.onerror=function(){rej(new Error('network error'))};x.ontimeout=function(){rej(new Error('timeout'))};x.send()})}
+function getAny(u){
+  var tm,to=new Promise(function(_,rej){tm=setTimeout(function(){rej(new Error('timeout'))},12000)});
+  var uu=u+(u.indexOf('?')<0?'?':'&')+'_t='+Date.now();
+  var f=fetch(uu).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()});
+  return Promise.race([f,to]).catch(function(e1){return xhrText(uu).catch(function(e2){throw new Error((e1&&e1.message||e1)+' / XHR: '+(e2&&e2.message||e2))})})
+    .then(function(t){clearTimeout(tm);return t},function(e){clearTimeout(tm);throw e});
+}
+function load(){
+  var seq=++loadSeq;ready=false;src={kind:'loading'};setBadge();upd();showMsg($('refMsg'),'');
+  function done(){if(seq!==loadSeq)return;ready=true;setBadge();upd();render()}
+  function fallback(why){
+    var c=null;try{c=JSON.parse(localStorage.getItem(CK)||'null')}catch(e){}
+    if(c&&c.rows&&c.rows.length){ref=c.rows;src={kind:'cache',at:c.at}}
+    else{ref=BUILTIN;src={kind:'builtin',at:CONFIG.BUILT_AT}}
+    if(seq!==loadSeq)return;
+    showMsg($('refMsg'),why+'\nUsing '+(src.kind==='cache'?'the last copy saved in this browser':'the backup reference built into this file')+'. It may be out of date.','warn');
+    showMsg($('err'),'Warning: the live reference could not be loaded, so an older reference is being used. Reload the page before converting important files.\nReason: '+why,'warn');
+    done();
+  }
+  var srcs=[];
+  if(CONFIG.REF_CSV_URL)srcs.push({u:CONFIG.REF_CSV_URL,kind:'live',name:'shared sheet'});
+  if(/^https?:/.test(location.protocol))srcs.push({u:CONFIG.REF_FILE||'reference.csv',kind:'file',name:'reference.csv'});
+  if(!srcs.length){ref=BUILTIN;src={kind:'builtin',at:CONFIG.BUILT_AT};showMsg($('refMsg'),'No live reference source is configured. Using the backup reference built into this file.','warn');done();return}
+  var errs=[];
+  (function next(i){
+    if(i>=srcs.length)return fallback('Could not load the live reference ('+errs.join(' | ')+').');
+    getAny(srcs[i].u).then(function(t){
+      if(seq!==loadSeq)return;
+      var p=toRef(parseCSV(t));ref=p.rows;src={kind:srcs[i].kind,at:hm(new Date())};
+      try{localStorage.setItem(CK,JSON.stringify({at:src.at,rows:ref}))}catch(e){}
+      showMsg($('err'),'');
+      var m=[];
+      if(i>0)m.push('The shared sheet could not be read ('+errs.join(' | ')+'). Using reference.csv hosted with this app.');
+      if(p.bad.length)m.push(p.bad.length+' invalid or duplicate row(s) were skipped (rows: '+p.bad.slice(0,10).join(', ')+(p.bad.length>10?', …':'')+').');
+      showMsg($('refMsg'),m.join('\n'),m.length?'warn':'');
+      done();
+    }).catch(function(e){errs.push(srcs[i].name+': '+(e&&e.message||e));next(i+1)});
+  })(0);
+}
+$('reload').addEventListener('click',load);
+
+function render(){
+  var f=s($('q').value).toLowerCase(),tb=$('tbody'),h='';tb.innerHTML='';
+  ref.forEach(function(r){
+    if(f&&r.slice(0,4).join('\u0001').toLowerCase().indexOf(f)<0)return;
+    var tr=document.createElement('tr');
+    r.forEach(function(v){var td=document.createElement('td');td.textContent=v;tr.appendChild(td)});
+    tb.appendChild(tr);
+  });
+}
+$('q').addEventListener('input',render);
+
+// ---- converter
+var drop=$('d1');
+function pick(f){if(!f)return;file=f;$('n1').textContent=f.name;upd()}
+$('f1').addEventListener('change',function(){pick(this.files[0])});
+['dragover','dragenter'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.add('on')})});
+['dragleave','drop'].forEach(function(e){drop.addEventListener(e,function(){drop.classList.remove('on')})});
+drop.addEventListener('drop',function(ev){ev.preventDefault();pick(ev.dataTransfer.files[0])});
+
+$('go').addEventListener('click',function(){
+  var E=$('err');
+  if(!needX(E))return;
+  var r=new FileReader();
+  r.onerror=function(){showMsg(E,'Could not read the file.','bad')};
+  r.onload=function(){
+    try{
+      var wbO=XLSX.read(r.result,{type:'array'}),ws=wbO.Sheets[wbO.SheetNames[0]];
+      var aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null,blankrows:false});
+      var oh=aoa[0].map(s),iK=oh.indexOf('Seller SKU'),iN=oh.indexOf('Quantity'),iO=oh.indexOf('Order ID');
+      if(iK<0||iN<0)throw new Error('Columns "Seller SKU" and "Quantity" were not found in row 1 of the first sheet.');
+      var map={};ref.forEach(function(x){var k=up(x[0]);(map[k]=map[k]||[]).push({p:s(x[2]),q:Number(x[4])||1})});
+      var hasDesc=iO>=0?!/^\d{5,}$/.test(s(aoa[1]&&aoa[1][iO])):true;
+      var head=aoa.slice(0,hasDesc?2:1),data=aoa.slice(hasDesc?2:1),res=[],conv={},unm={},unmO={},prev=[],iP=oh.indexOf('Product Name');
+      function pv(n,st){prev.push({o:iO>=0?s(n[iO]):'',k:s(n[iK]),q:n[iN],p:iP>=0?s(n[iP]):'',st:st})}
+      data.forEach(function(row){
+        var sku=s(row[iK]),key=up(sku),q=Number(row[iN])||0;
+        if(map[key]){conv[key]=(conv[key]||0)+1;map[key].forEach(function(c){var n=row.slice();n[iK]=c.p;n[iN]=q*c.q;res.push(n);pv(n,'ok')})}
+        else{var n=row.slice();n[iN]=q;res.push(n);pv(n,/^K/i.test(sku)?'err':'');if(/^K/i.test(sku)){unm[sku]=(unm[sku]||0)+1;(unmO[sku]=unmO[sku]||[]).push(iO>=0?s(row[iO]):'')}}
+      });
+      var nws=XLSX.utils.aoa_to_sheet(head.concat(res));if(ws['!cols'])nws['!cols']=ws['!cols'];
+      var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,nws,wbO.SheetNames[0]);out=wb;
+      var ords={},pcs=0;res.forEach(function(row){if(iO>=0)ords[s(row[iO])]=1;pcs+=Number(row[iN])||0});
+      var nOrd=iO>=0?Object.keys(ords).length:'-';
+      $('sRows').textContent=data.length+' → '+res.length;$('sOrd').textContent=nOrd;$('sPcs').textContent=pcs;
+      var tb=$('conv');tb.innerHTML='<tr><th>K SKU</th><th>Order rows</th><th>Converted to (P SKU × qty)</th></tr>';
+      Object.keys(conv).forEach(function(k){var tr=document.createElement('tr');
+        [k,conv[k],map[k].map(function(c){return c.p+' × '+c.q}).join(', ')].forEach(function(v){var td=document.createElement('td');td.textContent=v;tr.appendChild(td)});tb.appendChild(tr)});
+      var um=Object.keys(unm),N=$('sNote'),UB=$('unmBox'),UT=$('unm');UT.innerHTML='';
+      if(um.length){
+        N.className='msg bad';N.textContent='ERROR: '+um.length+' K SKU(s) were not found in the reference table and were NOT converted (left unchanged in the file). Add them to the reference table, then convert again.';
+        var hr=document.createElement('tr');['K SKU not in reference','Order rows','Order IDs'].forEach(function(t){var th=document.createElement('th');th.textContent=t;hr.appendChild(th)});UT.appendChild(hr);
+        um.forEach(function(k){var tr=document.createElement('tr');tr.className='unm';[k,unm[k],unmO[k].join(', ')].forEach(function(v){var td=document.createElement('td');td.textContent=v;tr.appendChild(td)});UT.appendChild(tr)});
+        UB.hidden=false;
+      }else{N.className='msg ok';N.textContent='All K SKUs were converted.';UB.hidden=true}
+      var PT=$('pv');PT.innerHTML='';
+      var ph=document.createElement('tr');['Order ID','Seller SKU','Qty','Product Name'].forEach(function(t){var th=document.createElement('th');th.textContent=t;ph.appendChild(th)});PT.appendChild(ph);
+      var fr=document.createDocumentFragment();
+      prev.forEach(function(r){var tr=document.createElement('tr');if(r.st)tr.className=r.st;
+        [r.o,r.k,r.q,r.p].forEach(function(v,ix){var td=document.createElement('td');td.textContent=v;if(ix===3)td.className='pn';tr.appendChild(td)});fr.appendChild(tr)});
+      PT.appendChild(fr);
+      $('srcNote').textContent='Reference used: '+$('badge1').textContent;
+      var base=file.name.replace(/\.xlsx?$/i,'').replace(/\s*\d+\s*orders\s*\d+\s*pcs\s*$/i,'');
+      out._name=base+'_'+nOrd+' orders '+pcs+' pcs.xlsx';$('fname').textContent=out._name;$('res').hidden=false;
+    }catch(e){showMsg(E,e.message||String(e),'bad')}
+  };
+  r.readAsArrayBuffer(file);
+});
+$('dl').addEventListener('click',function(){if(!out||!needX($('err')))return;saveBlob(XLSX.write(out,{type:'array',bookType:'xlsx'}),out._name,XLSX_T)});
+
+load();
+})();
+</script>
+</body>
+</html>

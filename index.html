@@ -5,23 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>APR VN K SKU to P SKU Converter</title>
 <style>
-:root{--red:#E6002A;--red40:#F4ABAF;--blk:#3E3A39;--bg:#F6F3F3;--card:#fff;--tx:#3E3A39;--sub:#8A8483;--line:#EFE9EA;--tint:#FBF5F6;--ok:#3FA862;--okbg:#E8F6ED;--bad:#D9534F;--bbg:#FDEDEC}
+:root{--g:18px;--red:#E6002A;--red40:#F4ABAF;--blk:#3E3A39;--bg:#F6F3F3;--card:#fff;--tx:#3E3A39;--sub:#8A8483;--line:#EFE9EA;--tint:#FBF5F6;--ok:#3FA862;--okbg:#E8F6ED;--bad:#D9534F;--bbg:#FDEDEC}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font-family:"Pretendard","Segoe UI",Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;line-height:1.5;color-scheme:light}
-.hero{background:linear-gradient(135deg,#F0405A 0%,#E6002A 45%,#C20022 100%);padding:34px 0 78px}
+.hero{background:linear-gradient(135deg,#F0405A 0%,#E6002A 45%,#C20022 100%);padding:34px 0 var(--g)}
 .hw{max-width:980px;margin:0 auto;padding:0 16px}
-h1{margin:0;padding-left:22px;color:#fff;font-size:24px;font-weight:800;letter-spacing:-.3px}
-.wrap{max-width:980px;margin:-48px auto 0;padding:0 16px 48px}
+h1{margin:0 0 calc(var(--g) - 2px);padding-left:8px;line-height:1.25;color:#fff;font-size:24px;font-weight:800;letter-spacing:-.3px}
+.wrap{max-width:980px;margin:22px auto 0;padding:0 16px 48px}
 .card{background:var(--card);border-radius:22px;padding:22px;margin-bottom:16px;box-shadow:0 10px 30px rgba(62,58,57,.08)}
-.how summary{cursor:pointer;font-weight:700;font-size:15px;list-style:none}
+.hero .how{margin:0;padding:11px 22px;border-radius:16px}
+.how summary{cursor:pointer;font-weight:700;font-size:14px;list-style:none}
 .how summary::-webkit-details-marker{display:none}
 .how summary::after{content:"▾";float:right;color:var(--sub)}
 .how[open] summary::after{content:"▴"}
 .how ol{margin:10px 0 8px;padding-left:20px;font-size:14px}.how li{margin:4px 0}
 .how b.g{color:var(--ok)}.how b.r{color:var(--bad)}
 .how small{color:var(--sub)}
-.tabs{display:inline-flex;gap:4px;background:#fff;border-radius:999px;padding:4px;margin-bottom:16px;box-shadow:0 4px 14px rgba(62,58,57,.06)}
-.tab{background:transparent;color:var(--sub);border:0;border-radius:999px;padding:9px 22px;font-size:14px;cursor:pointer;font-weight:700}
+.tabs{display:flex;gap:10px;margin-bottom:16px}
+.tab{background:#fff;color:var(--sub);border:0;border-radius:14px;padding:11px 24px;font-size:14px;cursor:pointer;font-weight:700;box-shadow:0 4px 14px rgba(62,58,57,.06)}
 .tab.on{background:var(--red);color:#fff}
 .drop{display:flex;flex-direction:column;align-items:center;gap:4px;border:2px dashed var(--red40);background:#FFF8F9;border-radius:18px;padding:30px 16px;text-align:center;cursor:pointer;color:var(--sub);font-size:14px;transition:.15s}
 .drop:hover,.drop.on{border-color:var(--red);background:#FFF1F3;color:var(--tx)}
@@ -33,7 +34,7 @@ h1{margin:0;padding-left:22px;color:#fff;font-size:24px;font-weight:800;letter-s
 .drop.has #n1{font-weight:700;color:var(--tx);word-break:break-all}
 .drop.has #t1{color:#2E7D4A}
 input[type=file]{display:none}
-.b{display:inline-block;background:var(--blk);color:#fff;border:1.5px solid var(--blk);border-radius:999px;padding:11px 24px;font-size:14px;cursor:pointer;font-weight:700;text-decoration:none;transition:.15s}
+.b{display:inline-block;background:var(--blk);color:#fff;border:1.5px solid var(--blk);border-radius:12px;padding:11px 24px;font-size:14px;cursor:pointer;font-weight:700;text-decoration:none;transition:.15s}
 .b:hover{background:var(--red);border-color:var(--red)}
 .b.alt{background:#fff;color:var(--blk);border-color:#D9D2D2}
 .b.alt:hover{border-color:var(--red);color:var(--red);background:#fff}
@@ -49,7 +50,7 @@ input[type=file]{display:none}
 .toast.ok{background:#4DAF6B;color:#fff}
 .toast.bad{background:#D9534F;color:#fff}
 .toast.warn{background:#FFF4DB;color:#7A5A00}
-.badge{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;background:var(--tint);border-radius:999px;padding:5px 12px;color:var(--sub)}
+.badge{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;background:var(--tint);border-radius:10px;padding:5px 12px;color:var(--sub)}
 .badge::before{content:"";width:8px;height:8px;border-radius:50%;background:#C9C2C2}
 .badge.live{color:#2E7D4A}.badge.live::before{background:var(--ok)}
 .badge.old{color:#9A6B00}.badge.old::before{background:#E0A100}
@@ -67,18 +68,16 @@ tr:last-child td{border-bottom:0}
 #pv td.pn{max-width:460px;overflow:hidden;text-overflow:ellipsis}
 #pv tr.ok td{background:var(--okbg)}#pv tr.ok td:first-child{box-shadow:inset 4px 0 0 var(--ok)}
 #pv tr.err td{background:var(--bbg);color:var(--bad);font-weight:700}#pv tr.err td:first-child{box-shadow:inset 4px 0 0 var(--bad)}
-.search{background:#fff;color:var(--tx);border:1.5px solid #D9D2D2;border-radius:999px;padding:10px 16px;font-size:14px;min-width:240px;outline:0}
+.search{background:#fff;color:var(--tx);border:1.5px solid #D9D2D2;border-radius:12px;padding:10px 16px;font-size:14px;min-width:240px;outline:0}
 .search:focus{border-color:var(--red)}
 .sub{margin:0;color:var(--sub);font-size:14px}
 small{color:var(--sub)}
 [hidden]{display:none!important}
-@media(max-width:600px){.stats{grid-template-columns:1fr}.hero{padding:26px 0 70px}}
+@media(max-width:600px){.stats{grid-template-columns:1fr}.hero{padding:26px 0 var(--g)}}
 </style>
 </head>
 <body>
-<header class="hero"><div class="hw"><h1>APR VN<br>K SKU to P SKU Converter</h1></div></header>
-<main class="wrap">
-
+<header class="hero"><div class="hw"><h1>APR VN<br>K SKU to P SKU Converter</h1>
 <details class="card how">
   <summary>How to use</summary>
   <ol>
@@ -90,6 +89,9 @@ small{color:var(--sub)}
   </ol>
   <small>To see which P SKUs make up each K SKU, open the <b>Reference Table</b> tab. Your files stay in your browser and are never uploaded.</small>
 </details>
+</div></header>
+<main class="wrap">
+
 
 <div class="tabs">
   <button class="tab on" data-tab="conv">Converter</button>

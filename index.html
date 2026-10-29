@@ -21,6 +21,10 @@ h1{margin:0 0 calc(var(--g) - 2px);padding-left:8px;line-height:1.25;color:#fff;
 .how ol{margin:10px 0 8px;padding-left:20px;font-size:14px}.how li{margin:4px 0}
 .how b.g{color:var(--ok)}.how b.r{color:var(--bad)}
 .how small{color:var(--sub)}
+.who{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.who label{font-size:13px;font-weight:700}.who label span{color:var(--sub);font-weight:600}
+.who .search{width:100%;max-width:360px}
+.how .notice{display:block;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
 .tabs{display:flex;gap:10px;margin-bottom:16px}
 .tab{background:#fff;color:var(--sub);border:0;border-radius:14px;padding:11px 24px;font-size:14px;cursor:pointer;font-weight:700;box-shadow:0 4px 14px rgba(62,58,57,.06)}
 .tab.on{background:var(--red);color:#fff}
@@ -87,7 +91,8 @@ small{color:var(--sub)}
     <li>Click <b>Download converted file</b> to save the converted Excel file.</li>
     <li>To convert another file, click <b>Start over</b> (or refresh the page with F5).</li>
   </ol>
-  <small>To see which P SKUs make up each K SKU, open the <b>Reference Table</b> tab. Your files stay in your browser and are never uploaded.</small>
+  <small>To see which P SKUs make up each K SKU, open the <b>Reference Table</b> tab.</small>
+  <small class="notice"><b>Notice:</b> Your original order file stays in your browser and is not uploaded. When you click <b>Convert now</b>, a copy of the <b>converted file</b> and a summary (your name, file name, and row, order and quantity totals) are saved to the administrator's Google Drive for checking.</small>
 </details>
 </div></header>
 <main class="wrap">
@@ -100,6 +105,7 @@ small{color:var(--sub)}
 
 <section id="p-conv">
   <div class="card">
+    <div class="who"><label for="who">Your name <span>(required)</span></label><input class="search" id="who" maxlength="40" placeholder="e.g. Nguyen Van A" autocomplete="off"></div>
     <label class="drop" id="d1">
       <svg class="ic-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
       <svg class="ic-ok" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#3FA862"/><path d="M7 12.5l3.2 3.2L17 9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -116,8 +122,9 @@ small{color:var(--sub)}
     <div class="bar">
       <button class="b" id="dl">Download converted file</button>
       <button class="b alt js-reset">Start over</button>
-      <small id="fname"></small>
+      <small id="fname"></small><small id="saveStat"></small>
     </div>
+    <div id="saveMsg" class="toast" hidden></div>
     <div class="stats">
       <div class="stat"><span>Rows (before → after)</span><strong id="sRows"></strong></div>
       <div class="stat"><span>Orders</span><strong id="sOrd"></strong></div>
@@ -156,6 +163,7 @@ small{color:var(--sub)}
 <script>
 /* ========= SETTINGS (only the app owner changes these) ========= */
 var CONFIG={
+  LOG_URL:"https://script.google.com/macros/s/AKfycbxjgecv8RR0sHVua42arzbwTVjtqMxwTyLXlYTXbmFRxieJxDw4n9YJk4fe3HFX3qFRZw/exec",   // Apps Script web app URL of the administrator's log endpoint (ends with /exec)
   REF_CSV_URL:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRWMtWjG6kZgzWKwL_tH0kWmdP5ghWhAZBH6Yrqt99jKNCzIVj_530PTlSHLlczuYe4yxk89IPh90ze/pub?gid=1033917974&single=true&output=csv",   // Google Sheet "Publish to web" CSV link
   REF_FILE:"reference.csv",   // same-folder backup source used when hosted on a web server
   EDIT_URL:"",      // optional: normal link to the sheet, shown as "Open reference sheet"
@@ -232,11 +240,42 @@ function setBadge(){
   ['badge1','badge2'].forEach(function(id){$(id).textContent=t;$(id).className=cls});
 }
 function sets(rows){var o={};rows.forEach(function(r){o[up(r[0])]=1});return Object.keys(o).length}
-function upd(){$('go').disabled=!(file&&ready)}
+function upd(){$('go').disabled=!(file&&ready&&s($('who').value))}
 
 function xhrText(u){return new Promise(function(res,rej){var x=new XMLHttpRequest();x.open('GET',u);x.timeout=12000;
   x.onload=function(){x.status>=200&&x.status<300?res(x.responseText):rej(new Error('HTTP '+x.status))};
   x.onerror=function(){rej(new Error('network error'))};x.ontimeout=function(){rej(new Error('timeout'))};x.send()})}
+var saveSeq=0;
+function jid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,10)}
+function b64(buf){var u=new Uint8Array(buf),t='',i,c=0x8000;for(i=0;i<u.length;i+=c)t+=String.fromCharCode.apply(null,u.subarray(i,i+c));return btoa(t)}
+function post(obj){
+  var U=CONFIG.LOG_URL,body=JSON.stringify(obj);
+  return fetch(U,{method:'POST',body:body}).then(function(r){return r.json()}).catch(function(){
+    return fetch(U,{method:'POST',mode:'no-cors',body:body}).then(function(){return {ok:null}});
+  });
+}
+function saveCopy(m){
+  var sq=++saveSeq;showMsg($('saveMsg'),'');$('saveStat').textContent='';
+  if(!CONFIG.LOG_URL)return;
+  var id=jid(),buf=null;
+  $('saveStat').textContent='Saving a copy for the administrator…';
+  try{buf=b64(XLSX.write(out,{type:'array',bookType:'xlsx'}))}catch(e){}
+  var rec={action:'log',id:id,worker:s($('who').value),file:file?file.name:'',rowsBefore:m.rowsBefore,rowsAfter:m.rowsAfter,orders:m.orders,origPcs:m.origPcs,pcs:m.pcs,unmapped:m.unmapped,ref:$('badge1').textContent};
+  post(rec).then(function(r1){
+    if(!buf)return [r1,{ok:false}];
+    return post({action:'file',id:id,name:out._name,data:buf}).then(function(r2){return [r1,r2]});
+  }).then(function(rs){
+    if(sq!==saveSeq)return;$('saveStat').textContent='';
+    if(rs[0].ok===true&&rs[1].ok===true)showMsg($('saveMsg'),'A copy of the converted file was saved for the administrator.','ok');
+    else showMsg($('saveMsg'),'Could not confirm that a copy was saved. You can still download the converted file. The administrator can see the conversion record.','warn');
+  }).catch(function(){
+    if(sq!==saveSeq)return;$('saveStat').textContent='';
+    showMsg($('saveMsg'),'Could not save a copy for the administrator. You can still download the converted file.','warn');
+  });
+}
+try{var w0=localStorage.getItem('kp_who');if(w0)$('who').value=w0}catch(e){}
+$('who').addEventListener('input',function(){try{localStorage.setItem('kp_who',s($('who').value))}catch(e){}upd()});
+
 function getAny(u){
   var tm,to=new Promise(function(_,rej){tm=setTimeout(function(){rej(new Error('timeout'))},12000)});
   var uu=u+(u.indexOf('?')<0?'?':'&')+'_t='+Date.now();
@@ -310,10 +349,10 @@ $('go').addEventListener('click',function(){
       if(iK<0||iN<0)throw new Error('Columns "Seller SKU" and "Quantity" were not found in row 1 of the first sheet.');
       var map={};ref.forEach(function(x){var k=up(x[0]);(map[k]=map[k]||[]).push({p:s(x[2]),q:Number(x[4])||1})});
       var hasDesc=iO>=0?!/^\d{5,}$/.test(s(aoa[1]&&aoa[1][iO])):true;
-      var head=aoa.slice(0,hasDesc?2:1),data=aoa.slice(hasDesc?2:1),res=[],conv={},unm={},unmO={},prev=[],iP=oh.indexOf('Product Name');
+      var head=aoa.slice(0,hasDesc?2:1),data=aoa.slice(hasDesc?2:1),res=[],conv={},unm={},unmO={},prev=[],iP=oh.indexOf('Product Name'),op=0;
       function pv(n,st){prev.push({o:iO>=0?s(n[iO]):'',k:s(n[iK]),q:n[iN],p:iP>=0?s(n[iP]):'',st:st})}
       data.forEach(function(row){
-        var sku=s(row[iK]),key=up(sku),q=Number(row[iN])||0;
+        var sku=s(row[iK]),key=up(sku),q=Number(row[iN])||0;op+=q;
         if(map[key]){conv[key]=(conv[key]||0)+1;map[key].forEach(function(c){var n=row.slice();n[iK]=c.p;n[iN]=q*c.q;res.push(n);pv(n,'ok')})}
         else{var n=row.slice();n[iN]=q;res.push(n);pv(n,/^K/i.test(sku)?'err':'');if(/^K/i.test(sku)){unm[sku]=(unm[sku]||0)+1;(unmO[sku]=unmO[sku]||[]).push(iO>=0?s(row[iO]):'')}}
       });
@@ -341,6 +380,7 @@ $('go').addEventListener('click',function(){
       $('srcNote').textContent='Reference used: '+$('badge1').textContent;
       var base=file.name.replace(/\.xlsx?$/i,'').replace(/\s*\d+\s*orders\s*\d+\s*pcs\s*$/i,'');
       out._name=base+'_'+nOrd+' orders '+pcs+' pcs.xlsx';$('fname').textContent=out._name;$('res').hidden=false;
+      saveCopy({rowsBefore:data.length,rowsAfter:res.length,orders:nOrd,origPcs:op,pcs:pcs,unmapped:um.join(', ')});
     }catch(e){showMsg(E,e.message||String(e),'bad')}
   };
   r.readAsArrayBuffer(file);
@@ -349,7 +389,7 @@ $('dl').addEventListener('click',function(){if(!out||!needX($('err')))return;sav
 
 document.querySelectorAll('.js-reset').forEach(function(b){b.addEventListener('click',function(){
   file=null;out=null;$('f1').value='';drop.classList.remove('has');$('t1').textContent=T1;$('n1').textContent=N1;$('h1').hidden=true;$('res').hidden=true;$('conv').innerHTML='';$('pv').innerHTML='';$('unm').innerHTML='';$('unmBox').hidden=true;
-  showMsg($('err'),'');window.scrollTo(0,0);load();
+  showMsg($('err'),'');showMsg($('saveMsg'),'');$('saveStat').textContent='';saveSeq++;window.scrollTo(0,0);load();
 })});
 load();
 })();
